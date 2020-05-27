@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"go/ast"
-	"go/build"
 	"go/parser"
 	"go/token"
 	"io"
@@ -15,6 +14,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"golang.org/x/tools/go/packages"
 )
 
 const coberturaDTDDecl = "<!DOCTYPE coverage SYSTEM \"http://cobertura.sourceforge.net/xml/coverage-04.dtd\">\n"
@@ -55,14 +56,20 @@ func convert(in io.Reader, out io.Writer, ignore *Ignore) {
 		panic("Can't parse profiles")
 	}
 
-	srcDirs := build.Default.SrcDirs()
-	sources := make([]*Source, len(srcDirs))
-	for i, dir := range srcDirs {
-		sources[i] = &Source{dir}
+	pkgs, err := getPackages(profiles)
+	if err != nil {
+		panic(err)
+	}
+
+	sources := make([]*Source, 0)
+	pkgMap := make(map[string]*packages.Package)
+	for _, pkg := range pkgs {
+		sources = appendIfUnique(sources, pkg.Module.Dir)
+		pkgMap[pkg.ID] = pkg
 	}
 
 	coverage := Coverage{Sources: sources, Packages: nil, Timestamp: time.Now().UnixNano() / int64(time.Millisecond)}
-	coverage.parseProfiles(profiles, ignore)
+	coverage.parseProfiles(profiles, pkgMap, ignore)
 
 	fmt.Fprintf(out, xml.Header)
 	fmt.Fprintf(out, coberturaDTDDecl)
@@ -77,10 +84,43 @@ func convert(in io.Reader, out io.Writer, ignore *Ignore) {
 	fmt.Fprintln(out)
 }
 
-func (cov *Coverage) parseProfiles(profiles []*Profile, ignore *Ignore) error {
+func getPackages(profiles []*Profile) ([]*packages.Package, error) {
+	var pkgNames []string
+	for _, profile := range profiles {
+		pkgNames = append(pkgNames, getPackageName(profile.FileName))
+	}
+	return packages.Load(&packages.Config{Mode: packages.NeedFiles | packages.NeedModule}, pkgNames...)
+}
+
+func appendIfUnique(sources []*Source, dir string) []*Source {
+	for _, source := range sources {
+		if source.Path == dir {
+			return sources
+		}
+	}
+	return append(sources, &Source{dir})
+}
+
+func getPackageName(filename string) string {
+	pkgName, _ := filepath.Split(filename)
+	return strings.TrimRight(pkgName, string(os.PathSeparator))
+}
+
+func findAbsFilePath(pkg *packages.Package, profileName string) string {
+	filename := filepath.Base(profileName)
+	for _, fullpath := range pkg.GoFiles {
+		if filepath.Base(fullpath) == filename {
+			return fullpath
+		}
+	}
+	return ""
+}
+
+func (cov *Coverage) parseProfiles(profiles []*Profile, pkgMap map[string]*packages.Package, ignore *Ignore) error {
 	cov.Packages = []*Package{}
 	for _, profile := range profiles {
-		cov.parseProfile(profile, ignore)
+		pkgName := getPackageName(profile.FileName)
+		cov.parseProfile(profile, pkgMap[pkgName], ignore)
 	}
 	cov.LinesValid = cov.NumLines()
 	cov.LinesCovered = cov.NumLinesWithHits()
@@ -88,12 +128,12 @@ func (cov *Coverage) parseProfiles(profiles []*Profile, ignore *Ignore) error {
 	return nil
 }
 
-func (cov *Coverage) parseProfile(profile *Profile, ignore *Ignore) error {
-	fileName := profile.FileName
-	absFilePath, err := findFile(fileName)
-	if err != nil {
-		return err
+func (cov *Coverage) parseProfile(profile *Profile, pkgPkg *packages.Package, ignore *Ignore) error {
+	if pkgPkg == nil || pkgPkg.Module == nil {
+		return fmt.Errorf("package required when using go modules")
 	}
+	fileName := profile.FileName[len(pkgPkg.Module.Path)+1:]
+	absFilePath := findAbsFilePath(pkgPkg, profile.FileName)
 	fset := token.NewFileSet()
 	parsed, err := parser.ParseFile(fset, absFilePath, nil, 0)
 	if err != nil {
@@ -118,7 +158,7 @@ func (cov *Coverage) parseProfile(profile *Profile, ignore *Ignore) error {
 		}
 	}
 	if pkg == nil {
-		pkg = &Package{Name: pkgPath, Classes: []*Class{}}
+		pkg = &Package{Name: pkgPkg.ID, Classes: []*Class{}}
 		cov.Packages = append(cov.Packages, pkg)
 	}
 	visitor := &fileVisitor{
