@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -17,7 +16,7 @@ type dirInfo struct {
 	PkgPath string
 }
 
-func TestMain(t *testing.T) {
+func Test_Main(t *testing.T) {
 	fname := filepath.Join(os.TempDir(), "stdout")
 	temp, _ := os.Create(fname)
 	os.Stdout = temp

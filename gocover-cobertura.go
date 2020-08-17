@@ -120,7 +120,9 @@ func (cov *Coverage) parseProfiles(profiles []*Profile, pkgMap map[string]*packa
 	cov.Packages = []*Package{}
 	for _, profile := range profiles {
 		pkgName := getPackageName(profile.FileName)
-		cov.parseProfile(profile, pkgMap[pkgName], ignore)
+		if err := cov.parseProfile(profile, pkgMap[pkgName], ignore); err != nil {
+			return err
+		}
 	}
 	cov.LinesValid = cov.NumLines()
 	cov.LinesCovered = cov.NumLinesWithHits()
