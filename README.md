@@ -30,6 +30,11 @@ Usage
 
 Some flags can be passed (each flag should only be used once):
 
+- `-by-files`
+
+  Code coverage is organized by class by default.  This flag organizes code
+  coverage by the name of the file, which the same behavior as `go tool cover`.
+
 - `-ignore-dirs PATTERN`
 
   ignore directories matching `PATTERN` regular expression. Full

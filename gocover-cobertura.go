@@ -18,13 +18,19 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-const coberturaDTDDecl = "<!DOCTYPE coverage SYSTEM \"http://cobertura.sourceforge.net/xml/coverage-04.dtd\">\n"
+const coberturaDTDDecl = `<!DOCTYPE coverage SYSTEM "http://cobertura.sourceforge.net/xml/coverage-04.dtd">`
+var byFiles bool
+
+func fatal(format string, a ...interface{}) {
+	_, _ = fmt.Fprintf(os.Stderr, format, a...)
+	os.Exit(1)
+}
 
 func main() {
 	var ignore Ignore
 
+	flag.BoolVar(&byFiles, "by-files", false, "code coverage by file, not class")
 	flag.BoolVar(&ignore.GeneratedFiles, "ignore-gen-files", false, "ignore generated files")
-
 	ignoreDirsRe := flag.String("ignore-dirs", "", "ignore dirs matching this regexp")
 	ignoreFilesRe := flag.String("ignore-files", "", "ignore files matching this regexp")
 
@@ -34,16 +40,14 @@ func main() {
 	if *ignoreDirsRe != "" {
 		ignore.Dirs, err = regexp.Compile(*ignoreDirsRe)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Bad -ignore-dirs regexp: %s\n", err)
-			os.Exit(1)
+			fatal("Bad -ignore-dirs regexp: %s\n", err)
 		}
 	}
 
 	if *ignoreFilesRe != "" {
 		ignore.Files, err = regexp.Compile(*ignoreFilesRe)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Bad -ignore-files regexp: %s\n", err)
-			os.Exit(1)
+			fatal("Bad -ignore-files regexp: %s\n", err)
 		}
 	}
 
@@ -233,8 +237,13 @@ func (v *fileVisitor) method(n *ast.FuncDecl) *Method {
 }
 
 func (v *fileVisitor) class(n *ast.FuncDecl) *Class {
-	className := v.recvName(n)
-	var class *Class = v.classes[className]
+	var className string
+	if byFiles {
+		className = filepath.Base(v.fileName)
+	} else {
+		className = v.recvName(n)
+	}
+	class := v.classes[className]
 	if class == nil {
 		class = &Class{Name: className, Filename: v.fileName, Methods: []*Method{}, Lines: []*Line{}}
 		v.classes[className] = class
