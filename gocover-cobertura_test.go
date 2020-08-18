@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -32,13 +31,6 @@ func Test_Main(t *testing.T) {
 }
 
 func TestConvertParseProfilesError(t *testing.T) {
-	defer func() {
-		r := recover()
-		if r == nil || r != "Can't parse profiles" {
-			t.Errorf("The code did not panic as expected; r = %+v", r)
-		}
-	}()
-
 	pipe2rd, pipe2wr := io.Pipe()
 	defer func() {
 		err := pipe2rd.Close();
@@ -46,29 +38,29 @@ func TestConvertParseProfilesError(t *testing.T) {
 		err = pipe2wr.Close()
 		require.NoError(t, err)
 	}()
-	convert(strings.NewReader("invalid data"), pipe2wr, &Ignore{})
+	err := convert(strings.NewReader("invalid data"), pipe2wr, &Ignore{})
+	require.Error(t, err)
+	require.Equal(t, "bad mode line: invalid data", err.Error())
 }
 
 func TestConvertOutputError(t *testing.T) {
-	defer func() {
-		r := recover()
-		if r == nil || r.(error).Error() != "io: read/write on closed pipe" {
-			t.Errorf("The code did not panic as expected; r = %+v", r)
-		}
-	}()
-
 	pipe2rd, pipe2wr := io.Pipe()
 	err := pipe2wr.Close()
 	require.NoError(t, err)
 	defer func() { err := pipe2rd.Close(); require.NoError(t, err) }()
-	convert(strings.NewReader("mode: set"), pipe2wr, &Ignore{})
+	err = convert(strings.NewReader("mode: set"), pipe2wr, &Ignore{})
+	require.Error(t, err)
+	require.Equal(t, "io: read/write on closed pipe", err.Error())
 }
 
 func TestConvertEmpty(t *testing.T) {
 	data := `mode: set`
 
 	pipe2rd, pipe2wr := io.Pipe()
-	go convert(strings.NewReader(data), pipe2wr, &Ignore{})
+	go func() {
+		err := convert(strings.NewReader(data), pipe2wr, &Ignore{});
+		require.NoError(t, err)
+	}()
 
 	v := Coverage{}
 	dec := xml.NewDecoder(pipe2rd)
@@ -95,7 +87,6 @@ func TestParseProfileEmptyPackages(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, `package required when using go modules`, err.Error())
 }
-
 
 func TestParseProfileDoesNotExist(t *testing.T) {
 	v := Coverage{}
@@ -137,9 +128,17 @@ func TestParseProfilePermissionDenied(t *testing.T) {
 	require.NoError(t, err)
 	v := Coverage{}
 	profile := Profile{FileName: tempFile.Name()}
-	err = v.parseProfile(&profile, nil, &Ignore{})
+	pkg := packages.Package{
+		GoFiles: []string{
+			tempFile.Name(),
+		},
+		Module: &packages.Module{
+			Path: filepath.Dir(tempFile.Name()),
+		},
+	}
+	err = v.parseProfile(&profile, &pkg, &Ignore{})
 	require.Error(t, err)
-	require.Contains(t, "permission denied", err.Error())
+	require.Contains(t, err.Error(), "permission denied")
 }
 
 func TestConvertSetMode(t *testing.T) {
@@ -158,10 +157,15 @@ func TestConvertSetMode(t *testing.T) {
 		convwr = io.MultiWriter(convwr, testwr)
 	}
 
-	go convert(pipe1rd, convwr, &Ignore{
-		GeneratedFiles: true,
-		Files:          regexp.MustCompile(`[\\/]func[45]\.go$`),
-	})
+	go func() {
+		err := convert(pipe1rd, convwr, &Ignore{
+			GeneratedFiles: true,
+			Files:          regexp.MustCompile(`[\\/]func[45]\.go$`),
+		})
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	v := Coverage{}
 	dec := xml.NewDecoder(pipe2rd)

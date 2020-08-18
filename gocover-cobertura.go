@@ -51,18 +51,20 @@ func main() {
 		}
 	}
 
-	convert(os.Stdin, os.Stdout, &ignore)
+	if err := convert(os.Stdin, os.Stdout, &ignore); err != nil {
+		fatal("code coverage conversion failed: %s", err)
+	}
 }
 
-func convert(in io.Reader, out io.Writer, ignore *Ignore) {
+func convert(in io.Reader, out io.Writer, ignore *Ignore) error {
 	profiles, err := ParseProfiles(in, ignore)
 	if err != nil {
-		panic("Can't parse profiles")
+		return err
 	}
 
 	pkgs, err := getPackages(profiles)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	sources := make([]*Source, 0)
@@ -73,19 +75,21 @@ func convert(in io.Reader, out io.Writer, ignore *Ignore) {
 	}
 
 	coverage := Coverage{Sources: sources, Packages: nil, Timestamp: time.Now().UnixNano() / int64(time.Millisecond)}
-	_ = coverage.parseProfiles(profiles, pkgMap, ignore)
+	if err := coverage.parseProfiles(profiles, pkgMap, ignore); err != nil {
+		return err
+	}
 
-	fmt.Fprint(out, xml.Header)
-	fmt.Fprintln(out, coberturaDTDDecl)
+	_, _ = fmt.Fprint(out, xml.Header)
+	_, _ = fmt.Fprintln(out, coberturaDTDDecl)
 
 	encoder := xml.NewEncoder(out)
 	encoder.Indent("", "  ")
-	err = encoder.Encode(coverage)
-	if err != nil {
-		panic(err)
+	if err := encoder.Encode(coverage); err != nil {
+		return err
 	}
 
-	fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out)
+	return nil
 }
 
 func getPackages(profiles []*Profile) ([]*packages.Package, error) {
