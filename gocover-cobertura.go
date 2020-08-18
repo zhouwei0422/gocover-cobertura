@@ -69,10 +69,10 @@ func convert(in io.Reader, out io.Writer, ignore *Ignore) {
 	}
 
 	coverage := Coverage{Sources: sources, Packages: nil, Timestamp: time.Now().UnixNano() / int64(time.Millisecond)}
-	coverage.parseProfiles(profiles, pkgMap, ignore)
+	_ = coverage.parseProfiles(profiles, pkgMap, ignore)
 
-	fmt.Fprintf(out, xml.Header)
-	fmt.Fprintf(out, coberturaDTDDecl)
+	fmt.Fprint(out, xml.Header)
+	fmt.Fprint(out, coberturaDTDDecl)
 
 	encoder := xml.NewEncoder(out)
 	encoder.Indent("", "\t")
@@ -103,7 +103,8 @@ func appendIfUnique(sources []*Source, dir string) []*Source {
 
 func getPackageName(filename string) string {
 	pkgName, _ := filepath.Split(filename)
-	return strings.TrimRight(pkgName, string(os.PathSeparator))
+	// TODO(boumenot): Windows vs. Linux
+	return strings.TrimRight(strings.TrimRight(pkgName, "\\"), "/")
 }
 
 func findAbsFilePath(pkg *packages.Package, profileName string) string {
@@ -120,7 +121,8 @@ func (cov *Coverage) parseProfiles(profiles []*Profile, pkgMap map[string]*packa
 	cov.Packages = []*Package{}
 	for _, profile := range profiles {
 		pkgName := getPackageName(profile.FileName)
-		if err := cov.parseProfile(profile, pkgMap[pkgName], ignore); err != nil {
+		pkgPkg := pkgMap[pkgName]
+		if err := cov.parseProfile(profile, pkgPkg, ignore); err != nil {
 			return err
 		}
 	}
@@ -151,7 +153,10 @@ func (cov *Coverage) parseProfile(profile *Profile, pkgPkg *packages.Package, ig
 	}
 
 	pkgPath, _ := filepath.Split(fileName)
-	pkgPath = strings.TrimRight(pkgPath, string(os.PathSeparator))
+	pkgPath = strings.TrimRight(strings.TrimRight(pkgPath, "/"), "\\")
+	pkgPath = filepath.Join(pkgPkg.Module.Path, pkgPath)
+	// TODO(boumenot): package paths are not file paths, there is a consistent separator
+	pkgPath = strings.Replace(pkgPath, "\\", "/", -1)
 
 	var pkg *Package
 	for _, p := range cov.Packages {

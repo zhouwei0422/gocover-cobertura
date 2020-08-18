@@ -15,8 +15,6 @@ type Ignore struct {
 	cache          map[string]bool
 }
 
-var cache = map[string]bool{}
-
 func (i *Ignore) Match(fileName string, data []byte) (ret bool) {
 	if i.cache == nil {
 		i.cache = map[string]bool{}
