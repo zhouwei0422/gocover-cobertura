@@ -9,11 +9,8 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"go/build"
 	"io"
 	"math"
-	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -42,7 +39,7 @@ func (p byFileName) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 // ParseProfiles parses profile data from the given Reader and returns a
 // Profile for each file.
-func ParseProfiles(in io.Reader) ([]*Profile, error) {
+func ParseProfiles(in io.Reader, ignore *Ignore) ([]*Profile, error) {
 	files := make(map[string]*Profile)
 	// First line is "mode: foo", where foo is "set", "count", or "atomic".
 	// Rest of file is in the format
@@ -62,9 +59,12 @@ func ParseProfiles(in io.Reader) ([]*Profile, error) {
 		}
 		m := lineRe.FindStringSubmatch(line)
 		if m == nil {
-			return nil, fmt.Errorf("line %q doesn't match expected format: %v", m, lineRe)
+			continue
 		}
 		fn := m[1]
+		if ignore.Match(fn, nil) {
+			continue
+		}
 		p := files[fn]
 		if p == nil {
 			p = &Profile{
@@ -85,9 +85,34 @@ func ParseProfiles(in io.Reader) ([]*Profile, error) {
 	if err := s.Err(); err != nil {
 		return nil, err
 	}
+
 	for _, p := range files {
 		sort.Sort(blocksByStart(p.Blocks))
+		// Merge samples from the same location.
+		j := 1
+		for i := 1; i < len(p.Blocks); i++ {
+			b := p.Blocks[i]
+			last := p.Blocks[j-1]
+			if b.StartLine == last.StartLine &&
+				b.StartCol == last.StartCol &&
+				b.EndLine == last.EndLine &&
+				b.EndCol == last.EndCol {
+				if b.NumStmt != last.NumStmt {
+					return nil, fmt.Errorf("inconsistent NumStmt: changed from %d to %d", last.NumStmt, b.NumStmt)
+				}
+				if mode == "set" {
+					p.Blocks[j-1].Count |= b.Count
+				} else {
+					p.Blocks[j-1].Count += b.Count
+				}
+				continue
+			}
+			p.Blocks[j] = b
+			j++
+		}
+		p.Blocks = p.Blocks[:j]
 	}
+
 	// Generate a sorted slice.
 	profiles := make([]*Profile, 0, len(files))
 	for _, profile := range files {
@@ -127,7 +152,9 @@ type Boundary struct {
 }
 
 // Boundaries returns a Profile as a set of Boundary objects within the provided src.
-func (p *Profile) Boundaries(src []byte) (boundaries []Boundary) {
+func (p *Profile) Boundaries(src []byte) []Boundary {
+	var boundaries []Boundary
+
 	// Find maximum count.
 	max := 0
 	for _, b := range p.Blocks {
@@ -171,7 +198,7 @@ func (p *Profile) Boundaries(src []byte) (boundaries []Boundary) {
 		si++
 	}
 	sort.Sort(boundariesByPos(boundaries))
-	return
+	return boundaries
 }
 
 type boundariesByPos []Boundary
@@ -183,20 +210,4 @@ func (b boundariesByPos) Less(i, j int) bool {
 		return !b[i].Start && b[j].Start
 	}
 	return b[i].Offset < b[j].Offset
-}
-
-// findFile finds the location of the named file in GOROOT, GOPATH etc.
-func findFile(file string) (string, error) {
-	if strings.HasPrefix(file, "_") {
-		file = file[1:]
-	}
-	if _, err := os.Stat(file); err == nil {
-		return file, nil
-	}
-	dir, file := filepath.Split(file)
-	pkg, err := build.Import(dir, ".", build.FindOnly)
-	if err != nil {
-		return "", fmt.Errorf("can't find %q: %v", file, err)
-	}
-	return filepath.Join(pkg.Dir, file), nil
 }

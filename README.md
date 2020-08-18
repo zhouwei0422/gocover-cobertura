@@ -1,5 +1,10 @@
-[![Build Status](https://travis-ci.org/t-yuki/gocover-cobertura.svg?branch=master)](https://travis-ci.org/t-yuki/gocover-cobertura)
-[![Coverage Status](https://coveralls.io/repos/github/t-yuki/gocover-cobertura/badge.svg?branch=master)](https://coveralls.io/github/t-yuki/gocover-cobertura?branch=master)
+## Forked from t-yuki
+
+This is a **fork** of https://github.com/boumenot/gocover-cobertura.
+
+At the time of this writing the repository appears to be on *pause* with
+several outstanding PRs, and forks with interesting contributions.  This
+repo consolidates those outstanding forks, and combines them into one repo.
 
 go tool cover XML (Cobertura) export
 ====================================
@@ -13,8 +18,7 @@ Installation
 
 Just type the following to install the program and its dependencies:
 
-    $ go get code.google.com/p/go.tools/cmd/cover
-    $ go get github.com/t-yuki/gocover-cobertura
+    $ go get github.com/boumenot/gocover-cobertura
 
 Usage
 -----
@@ -24,12 +28,51 @@ Usage
     $ go test -coverprofile=coverage.txt -covermode count github.com/gorilla/mux
     $ gocover-cobertura < coverage.txt > coverage.xml
 
-Authors
+Some flags can be passed (each flag should only be used once):
+
+- `-ignore-dirs PATTERN`
+
+  ignore directories matching `PATTERN` regular expression. Full
+  directory names are matched, as
+  `github.com/boumenot/gocover-cobertura` (and so `github.com/boumenot`
+  and `github.com`), examples of use:
+  ```
+  # A specific directory
+  -ignore-dirs '^github\.com/boumenot/gocover-cobertura/testdata$'
+  # All directories autogen and any of their subdirs
+  -ignore-dirs '/autogen$'
+  ```
+
+- `-ignore-files PATTERN`
+
+  ignore files matching `PATTERN` regular expression. Full file names
+  are matched, as `github.com/boumenot/gocover-cobertura/profile.go`,
+  examples of use:
+  ```
+  # A specific file
+  -ignore-files '^github\.com/boumenot/gocover-cobertura/profile\.go$'
+  # All files ending with _gen.go
+  -ignore-files '_gen\.go$'
+  # All files in a directory autogen (or any of its subdirs)
+  -ignore-files '/autogen/'
+  ```
+
+- `-ignore-gen-files`
+
+  ignore generated files. Typically files containing a comment
+  indicating that the file has been automatically generated. See
+  `genCodeRe` regexp in [ignore.go](ignore.go).
+
+~~Authors~~Merger
 -------
 
-* [Yukinari Toyota (t-yuki)](https://github.com/t-yuki)
+[Christopher Boumenot (boumenot)](https://github.com/boumenot)
 
 Thanks
 ------
 
-This tool is originated from [gocov-xml](https://github.com/AlekSi/gocov-xml) by [Alexey Palazhchenko (AlekSi)](https://github.com/AlekSi)
+ * [Yukinari Toyota (t-yuki)](https://github.com/t-yuki)
+ * This tool is originated from [gocov-xml](https://github.com/AlekSi/gocov-xml) by [Alexey Palazhchenko (AlekSi)](https://github.com/AlekSi)
+ * [DarcySail](https://github.com/DarcySail)'s [PR](https://github.com/t-yuki/gocover-cobertura/pull/22)
+ * [maxatome](https://github.com/maxatome)'s [PR](https://github.com/t-yuki/gocover-cobertura/pull/19)
+ * [elliotmr](https://github.com/elliotmr)'s [branch](https://github.com/elliotmr/gocover-cobertura)
