@@ -129,14 +129,14 @@ func TestParseProfilePermissionDenied(t *testing.T) {
 		t.Skip("chmod is not supported by Windows")
 	}
 
-	tmpfile, err := ioutil.TempFile("", "not-readable")
+	tempFile, err := ioutil.TempFile("", "not-readable")
 	require.NoError(t, err)
 
-	defer func() { err := os.Remove(tmpfile.Name()); require.NoError(t, err) }()
-	err = tmpfile.Chmod(000)
+	defer func() { err := os.Remove(tempFile.Name()); require.NoError(t, err) }()
+	err = tempFile.Chmod(000)
 	require.NoError(t, err)
 	v := Coverage{}
-	profile := Profile{FileName: tmpfile.Name()}
+	profile := Profile{FileName: tempFile.Name()}
 	err = v.parseProfile(&profile, nil, &Ignore{})
 	require.Error(t, err)
 	require.Contains(t, "permission denied", err.Error())
