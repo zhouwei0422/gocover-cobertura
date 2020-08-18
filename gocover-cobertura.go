@@ -72,10 +72,10 @@ func convert(in io.Reader, out io.Writer, ignore *Ignore) {
 	_ = coverage.parseProfiles(profiles, pkgMap, ignore)
 
 	fmt.Fprint(out, xml.Header)
-	fmt.Fprint(out, coberturaDTDDecl)
+	fmt.Fprintln(out, coberturaDTDDecl)
 
 	encoder := xml.NewEncoder(out)
-	encoder.Indent("", "\t")
+	encoder.Indent("", "  ")
 	err = encoder.Encode(coverage)
 	if err != nil {
 		panic(err)
