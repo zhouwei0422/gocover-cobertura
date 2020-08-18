@@ -33,7 +33,7 @@ func Test_Main(t *testing.T) {
 func TestConvertParseProfilesError(t *testing.T) {
 	pipe2rd, pipe2wr := io.Pipe()
 	defer func() {
-		err := pipe2rd.Close();
+		err := pipe2rd.Close()
 		require.NoError(t, err)
 		err = pipe2wr.Close()
 		require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestConvertEmpty(t *testing.T) {
 
 	pipe2rd, pipe2wr := io.Pipe()
 	go func() {
-		err := convert(strings.NewReader(data), pipe2wr, &Ignore{});
+		err := convert(strings.NewReader(data), pipe2wr, &Ignore{})
 		require.NoError(t, err)
 	}()
 
@@ -93,7 +93,7 @@ func TestParseProfileDoesNotExist(t *testing.T) {
 	profile := Profile{FileName: "does-not-exist"}
 
 	pkg := packages.Package{
-		Name: "does-not-exist",
+		Name:   "does-not-exist",
 		Module: &packages.Module{},
 	}
 

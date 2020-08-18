@@ -19,6 +19,7 @@ import (
 )
 
 const coberturaDTDDecl = `<!DOCTYPE coverage SYSTEM "http://cobertura.sourceforge.net/xml/coverage-04.dtd">`
+
 var byFiles bool
 
 func fatal(format string, a ...interface{}) {
