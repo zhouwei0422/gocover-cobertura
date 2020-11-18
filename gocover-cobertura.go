@@ -244,7 +244,16 @@ func (v *fileVisitor) method(n *ast.FuncDecl) *Method {
 func (v *fileVisitor) class(n *ast.FuncDecl) *Class {
 	var className string
 	if byFiles {
-		className = filepath.Base(v.fileName)
+		//className = filepath.Base(v.fileName)
+		//
+		// NOTE(boumenot): ReportGenerator creates links that collide if names are not distinct.
+		// This could be an issue in how I am generating the report, but I have not been able
+		// to figure it out.  The work around is to generate a fully qualified name based on
+		// the file path.
+		//
+		// src/lib/util/foo.go -> src.lib.util.foo.go
+		className = strings.Replace(v.fileName, "/", ".", -1)
+		className = strings.Replace(className, "\\", ".", -1)
 	} else {
 		className = v.recvName(n)
 	}
