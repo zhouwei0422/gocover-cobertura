@@ -8,7 +8,6 @@ import (
 	"go/parser"
 	"go/token"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -156,7 +155,7 @@ func (cov *Coverage) parseProfile(profile *Profile, pkgPkg *packages.Package, ig
 	if err != nil {
 		return err
 	}
-	data, err := ioutil.ReadFile(absFilePath)
+	data, err := os.ReadFile(absFilePath)
 	if err != nil {
 		return err
 	}
