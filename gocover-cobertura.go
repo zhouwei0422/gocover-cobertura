@@ -210,9 +210,8 @@ func (v *fileVisitor) Visit(node ast.Node) ast.Visitor {
 		method := v.method(n)
 		method.LineRate = method.Lines.HitRate()
 		class.Methods = append(class.Methods, method)
-		for _, line := range method.Lines {
-			class.Lines = append(class.Lines, line)
-		}
+		class.Lines = append(class.Lines, method.Lines...)
+
 		class.LineRate = class.Lines.HitRate()
 	}
 	return v
