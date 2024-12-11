@@ -1,4 +1,4 @@
-module github.com/boumenot/gocover-cobertura
+module github.com/zhouwei0422/gocover-cobertura
 
 go 1.14
 
