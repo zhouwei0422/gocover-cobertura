@@ -86,7 +86,7 @@ func (lines *Lines) AddOrUpdateLine(lineNumber int, hits int64) {
 	if len(*lines) > 0 {
 		lastLine := (*lines)[len(*lines)-1]
 		if lineNumber == lastLine.Number {
-			if hits < lastLine.Hits {
+			if hits > lastLine.Hits {
 				lastLine.Hits = hits
 			}
 			return
